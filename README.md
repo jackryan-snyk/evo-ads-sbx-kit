@@ -1,54 +1,48 @@
-# Snyk ADS Sandbox Kit
+# snyk-evo-ads
 
-An experimental Docker Sandboxes mixin, requiring **sbx 0.39.0 or later**. The
-kit's `spec.yaml` and `files/` live at the repository root — there is only one
-kit here, so there's nothing to disambiguate with a subdirectory.
-
+A Docker Sandboxes mixin (`kind: mixin`), requiring **sbx 0.39.0 or later**.
 The kit installs whichever Snyk components you request — AgentScan, Agent
 Guard, and/or Snyk Studio — directly from their public release channels. It
 stages optional corporate certificates, installs the requested components,
 and runs AgentScan at startup and after a 15-minute pause between attempts.
-There is no dependency on Snyk's ADS installer or any tenant-side
+There is no dependency on Snyk-internal infrastructure or any tenant-side
 configuration: what gets installed is exactly what you ask for.
-
-This repository is closed to public contributions.
 
 ## Getting started
 
-Clone the repository and validate the kit:
+Add the mixin to a built-in agent. With a local clone of this repo:
 
 ```bash
-git clone git@github.com:snyk/evo-ads-sbx-kit.git
-cd evo-ads-sbx-kit
-sbx kit validate .
+sbx run claude --kit ./snyk-evo-ads/
 ```
 
-Run the launch commands below from this repository directory. If your network
-uses TLS interception, [stage your corporate root certificate](#corporate-certificates-and-network-access)
-before creating the sandbox.
+Or directly from the repo, without cloning:
+
+```bash
+sbx run claude --kit "git+https://github.com/docker/sbx-kits-contrib.git#dir=snyk-evo-ads"
+```
+
+If your network uses TLS interception, [stage your corporate root
+certificate](#staging-the-corporate-ca-certificate) before creating the
+sandbox.
 
 ## Repository layout
 
 ```text
-evo-ads-sbx-kit/
+snyk-evo-ads/
 ├── README.md
 ├── spec.yaml
-├── files/home/
-│   ├── .snyk-kit/   # Component selection, auth, and download helpers
-│   └── corp-ca/     # Optional corporate root certificates
-└── tests/test_auth.py
+└── files/home/
+    ├── .snyk-kit/   # Component selection, auth, and download helpers
+    └── corp-ca/     # Optional corporate root certificates
 ```
-
-Pass the repository root to `--kit` (or clone it standalone and pass that
-clone's root). Copy `spec.yaml` and `files/` when vendoring the kit into
-another project.
 
 ## Components
 
 Select what to install with `SNYK_COMPONENTS`, a comma-separated list of
 `scan`, `guard`, and/or `studio`. It defaults to `scan` when omitted.
 
-| Component | Credential required | Notes |
+| Component | Credential to activate | Notes |
 | --- | --- | --- |
 | `scan` (AgentScan) | `SNYK_TOKEN`, or `SNYK_ADS_PUSH_KEY` | Free-tier with a token, or enterprise upload with a push key |
 | `guard` (Agent Guard) | `SNYK_ADS_PUSH_KEY` | `SNYK_TENANT_ID` is optional — Agent Guard only needs it for the interactive push-key-minting flow this kit never uses |
@@ -63,15 +57,17 @@ separate binary from
 downloaded and verified the same way.
 
 Credentials are supplied explicitly with `-e`. The kit does not declare
-credential defaults or import host variables. Requesting a component without
-its required credential fails sandbox creation immediately, with a clear
-error — it does not silently skip the component.
+credential defaults or import host variables. Install steps run
+unconditionally — the binaries are public and need no credential to
+install. Requesting `scan` or `guard` without its credential still installs
+the binary, but the corresponding hooks stay inactive (logged, not an
+error) until a credential is set and the sandbox is recreated.
 
 ### Default: free-tier AgentScan
 
 ```bash
 sbx run claude \
-  --kit . \
+  --kit ./snyk-evo-ads/ \
   --name "$(hostname)-sandbox-free" \
   -e SNYK_TOKEN
 ```
@@ -82,21 +78,21 @@ sbx run claude \
 
 ```bash
 sbx run claude \
-  --kit . \
+  --kit ./snyk-evo-ads/ \
   --name "$(hostname)-sandbox" \
   -e SNYK_COMPONENTS=scan,guard \
   -e SNYK_ADS_PUSH_KEY
 ```
 
-Guard hooks install directly (no ADS installer involved), so the identity
-Guard reports matches Scan's — both use
-`docker-sbx:${SANDBOX_NAME}:${SANDBOX_ID}` — from the very first install.
+Guard hooks install directly, so the identity Guard reports matches Scan's
+— both use `docker-sbx:${SANDBOX_NAME}:${SANDBOX_ID}` — from the very first
+install.
 
 ### All three components
 
 ```bash
 sbx run claude \
-  --kit . \
+  --kit ./snyk-evo-ads/ \
   --name "$(hostname)-sandbox-all" \
   -e SNYK_COMPONENTS=scan,guard,studio \
   -e SNYK_ADS_PUSH_KEY
@@ -106,7 +102,7 @@ sbx run claude \
 
 ```bash
 sbx run claude \
-  --kit . \
+  --kit ./snyk-evo-ads/ \
   --name "$(hostname)-sandbox-studio" \
   -e SNYK_COMPONENTS=studio
 ```
@@ -125,7 +121,7 @@ path AgentScan uses by default (only the host changes):
 
 ```bash
 sbx run claude \
-  --kit . \
+  --kit ./snyk-evo-ads/ \
   --name "$(hostname)-sandbox" \
   -e SNYK_COMPONENTS=scan,guard \
   -e SNYK_ADS_PUSH_KEY \
@@ -214,7 +210,7 @@ must be recreated.
 
 ## Agent-assisted security reviews
 
-Inside the sandbox, ask Claude:
+Inside the sandbox, ask the agent:
 
 > Run an AgentScan security review and summarize the findings for this sandbox.
 
@@ -229,7 +225,7 @@ consent is preserved for interactive scans.
 ## Verification and troubleshooting
 
 ```bash
-sbx kit validate .
+sbx kit validate ./snyk-evo-ads/
 sbx exec "<sandbox-name>" sh -c 'sh "$HOME/.snyk-kit/resolve-components.sh"'
 sbx exec "<sandbox-name>" sh -c 'cat "$HOME/.snyk/agent-scan-startup.log"'
 ```
@@ -237,15 +233,17 @@ sbx exec "<sandbox-name>" sh -c 'cat "$HOME/.snyk/agent-scan-startup.log"'
 Replace `<sandbox-name>` with the name passed at creation.
 
 `resolve-components.sh` prints `scan=0|1 guard=0|1 studio=0|1
-auth_mode=enterprise|standalone|none` and fails with a specific error if a
-requested component is missing its required credential. AgentScan and Guard
-always share `~/.local/share/snyk-agent-scan/agent-scan`; Studio's binary is
-at `~/.local/share/snyk-studio/snyk-studio-installer`.
+auth_mode=enterprise|standalone|none` and fails only if `SNYK_COMPONENTS`
+itself is malformed (an unknown component, or a value that resolves to
+none). AgentScan and Guard always share
+`~/.local/share/snyk-agent-scan/agent-scan`; Studio's binary is at
+`~/.local/share/snyk-studio/snyk-studio-installer`.
 
 | Symptom | Check |
 | --- | --- |
 | TLS download failure, curl 60/77 | Corporate root certificate and system trust store |
 | Connection failure, curl 6/7 | DNS, proxy, and organization network policy |
-| Sandbox creation fails immediately with a `snyk-ads: ERROR` | Which component was requested and which credential it needs (see [Components](#components)) |
+| Sandbox creation fails immediately with a `snyk-ads: ERROR` | `SNYK_COMPONENTS` itself — an unknown component name, or a value that resolves to none (see [Components](#components)) |
+| Binary installed but scan/guard hooks inactive | Missing credential for that component — install logs say so; set it and recreate the sandbox |
 | No Scan binary | Whether `scan` was actually requested in `SNYK_COMPONENTS` |
 | No recurring output | Startup log and sbx version |
