@@ -13,6 +13,12 @@ the install step globs `*.crt`.
 **Skip this entirely if your network does not intercept TLS.** The CA step is non-fatal by
 design; it prints a warning and carries on.
 
+This directory is how a **local** `--kit .` checkout gets the certificate into
+the sandbox. It is empty in the published `sbx/snyk-evo-ads-kit` image. For that
+image, use a [sidecar mixin](../../../README.md#published-image) with the same
+`files/home/corp-ca/*.crt` layout. Do not expect a file added here to affect an
+already published image.
+
 ## Export the cert
 
 macOS, Zscaler, from the System keychain:

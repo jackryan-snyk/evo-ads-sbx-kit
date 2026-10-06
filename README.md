@@ -25,7 +25,9 @@ sbx kit validate .
 
 Run the launch commands below from this repository directory. If your network
 uses TLS interception, [stage your corporate root certificate](#corporate-certificates-and-network-access)
-before creating the sandbox.
+before creating the sandbox. The published image
+`sbx/snyk-evo-ads-kit` cannot contain your company's CA — use the
+[sidecar mixin](#published-image) below with that image.
 
 ## Repository layout
 
@@ -148,9 +150,85 @@ intercepting TLS — skip this section entirely. A corporate proxy name
 (Zscaler, Netskope, Palo Alto, ...) means your network is intercepting TLS
 and you need to stage its root certificate, below.
 
+### Published image
+
+Workaround when `sbx run ... --kit sbx/snyk-evo-ads-kit:latest` fails
+with `curl: (60)` behind Zscaler or another TLS-intercepting proxy.
+The published image cannot contain your company's CA. Dropping a
+certificate into a clone of this repo does nothing for that image: kit
+files are sealed when the image is published. Sandbox creation copies
+every kit's `files/home/` into place before any install command runs,
+and this kit then installs `/home/agent/corp-ca/*.crt`. A second, local
+mixin contributes the certificate. It needs no install command of its
+own. No kit code change is required.
+
+One-time setup on macOS. Replace `"Zscaler Root CA"` with your proxy's
+CA common name if it differs.
+
+1. Create the mixin directory:
+
+```bash
+mkdir -p ~/.sbx/corp-ca-kit/files/home/corp-ca
+```
+
+2. Export the root CA from the System keychain:
+
+```bash
+security find-certificate -a -c "Zscaler Root CA" -p \
+  /Library/Keychains/System.keychain \
+  > ~/.sbx/corp-ca-kit/files/home/corp-ca/zscaler-root-ca.crt
+```
+
+3. Write the mixin spec:
+
+```bash
+cat > ~/.sbx/corp-ca-kit/spec.yaml << 'EOF'
+schemaVersion: "2"
+kind: mixin
+name: corp-ca
+description: Corporate root CA for TLS-intercepting proxies
+EOF
+```
+
+4. Confirm the spec and that the cert file is PEM:
+
+```bash
+cat ~/.sbx/corp-ca-kit/spec.yaml
+head -1 ~/.sbx/corp-ca-kit/files/home/corp-ca/*.crt   # -----BEGIN CERTIFICATE-----
+```
+
+Linux, if the PEM is already on disk, use the same `spec.yaml` and copy
+the cert instead of the `security` command:
+
+```bash
+mkdir -p ~/.sbx/corp-ca-kit/files/home/corp-ca
+cp /usr/local/share/ca-certificates/your-corporate-ca.crt \
+  ~/.sbx/corp-ca-kit/files/home/corp-ca/your-corporate-ca.crt
+```
+
+Pass the mixin next to the published kit. Order does not matter.
+Recreate the sandbox; `--kit` is ignored on an existing one. Export
+`SNYK_ADS_PUSH_KEY`, `SNYK_TOKEN`, and `SNYK_TENANT_ID` in your shell
+first. The bare `-e NAME` flags import those values. Do not paste
+secrets into the command. `SNYK_TENANT_ID` is optional. Guard does not
+need it for this kit. `SNYK_COMPONENTS=scan,guard,studio` is what
+installs hooks. The default, `scan`, does not.
+
+```bash
+sbx run claude \
+  --kit sbx/snyk-evo-ads-kit:latest \
+  --kit ~/.sbx/corp-ca-kit \
+  --name "$(hostname)-sandbox" \
+  -e SNYK_COMPONENTS=scan,guard,studio \
+  -e SNYK_TENANT_ID \
+  -e SNYK_ADS_PUSH_KEY \
+  -e SNYK_TOKEN
+```
+
 ### Staging the corporate CA certificate
 
-Place its PEM-encoded root certificate in `files/home/corp-ca/` with
+This path is for `--kit .` (or any local checkout). Place its
+PEM-encoded root certificate in `files/home/corp-ca/` with
 a `.crt` extension — any filename works, the install step globs `*.crt`:
 
 ```text
@@ -244,7 +322,8 @@ at `~/.local/share/snyk-studio/snyk-studio-installer`.
 
 | Symptom | Check |
 | --- | --- |
-| TLS download failure, curl 60/77 | Corporate root certificate and system trust store |
+| TLS download failure, curl 60/77 | Corporate root certificate. For `sbx/snyk-evo-ads-kit`, use the [sidecar mixin](#published-image). The cert step can still print a green check: it warns and continues when no `.crt` is present, and the TLS probe does not fail the install. |
+| Sandbox is up, hooks are installed, machine never appears in Evo | Evo settings version for Agent Scan and Agent Guard. The kit installs the latest client (0.6.8 as of this writing). If the tenant pin is older, the async upload that creates the Machines row returns HTTP 403 once skills are included, and Agent Scan still exits 0. Set Machines and Agent Behavior to that same version in Evo settings and create a new sandbox. |
 | Connection failure, curl 6/7 | DNS, proxy, and organization network policy |
 | Sandbox creation fails immediately with a `snyk-ads: ERROR` | Which component was requested and which credential it needs (see [Components](#components)) |
 | No Scan binary | Whether `scan` was actually requested in `SNYK_COMPONENTS` |
