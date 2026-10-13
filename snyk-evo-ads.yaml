@@ -3,7 +3,7 @@
 schemaVersion: "3"
 kind: mixin
 displayName: Snyk Evo ADS
-description: "Installs Snyk AgentScan, Agent Guard, and/or Snyk Studio, selected via SNYK_COMPONENTS, directly from their public release channels"
+description: "Installs Snyk Agent Scan, Agent Guard, and/or Snyk Studio, selected via SNYK_COMPONENTS, directly from their public release channels"
 sourceUrl: https://github.com/docker/sbx-kits-contrib/tree/main/snyk-evo-ads
 licenses:
   - Apache-2.0
