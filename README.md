@@ -6,10 +6,10 @@
 # snyk-evo-ads
 
 A Docker Sandboxes mixin (`kind: mixin`), requiring **sbx 0.39.0 or later**.
-The kit installs whichever Snyk components you request — AgentScan, Agent
+The kit installs whichever Snyk components you request — Agent Scan, Agent
 Guard, and/or Snyk Studio — directly from their public release channels. It
 stages optional corporate certificates, installs the requested components,
-and runs AgentScan at startup and after a 15-minute pause between attempts.
+and runs Agent Scan at startup and after a 15-minute pause between attempts.
 There is no dependency on Snyk-internal infrastructure or any tenant-side
 configuration: what gets installed is exactly what you ask for.
 
@@ -64,11 +64,11 @@ Select what to install with `SNYK_COMPONENTS`, a comma-separated list of
 
 | Component | Credential to activate | Notes |
 | --- | --- | --- |
-| `scan` (AgentScan) | `SNYK_TOKEN`, or `SNYK_ADS_PUSH_KEY` | Free-tier with a token, or enterprise upload with a push key |
+| `scan` (Agent Scan) | `SNYK_TOKEN`, or `SNYK_ADS_PUSH_KEY` | Free-tier with a token, or enterprise upload with a push key |
 | `guard` (Agent Guard) | `SNYK_ADS_PUSH_KEY` | `SNYK_TENANT_ID` is optional — Agent Guard only needs it for the interactive push-key-minting flow this kit never uses |
 | `studio` (Snyk Studio) | none to install | Optional `SNYK_TOKEN` authenticates its Snyk CLI afterward |
 
-Scan and Guard are the same `agent-scan` binary (downloaded once, from
+Agent Scan and Agent Guard are the same `agent-scan` binary (downloaded once, from
 [github.com/snyk/agent-scan releases](https://github.com/snyk/agent-scan/releases),
 SHA-256 verified) and always live at
 `~/.local/share/snyk-agent-scan/agent-scan`, in every mode. Studio is a
@@ -83,7 +83,7 @@ install. Requesting `scan` or `guard` without its credential still installs
 the binary, but the corresponding hooks stay inactive (logged, not an
 error) until a credential is set and the sandbox is recreated.
 
-### Default: free-tier AgentScan
+### Default: free-tier Agent Scan
 
 ```bash
 sbx run docker.io/docker/sbx-kit-claude:2.1.267 \
@@ -92,9 +92,9 @@ sbx run docker.io/docker/sbx-kit-claude:2.1.267 \
   -e SNYK_TOKEN
 ```
 
-`SNYK_COMPONENTS` defaults to `scan`, so this installs AgentScan only.
+`SNYK_COMPONENTS` defaults to `scan`, so this installs Agent Scan only.
 
-### AgentScan + Agent Guard
+### Agent Scan + Agent Guard
 
 ```bash
 sbx run docker.io/docker/sbx-kit-claude:2.1.267 \
@@ -104,7 +104,7 @@ sbx run docker.io/docker/sbx-kit-claude:2.1.267 \
   -e SNYK_ADS_PUSH_KEY
 ```
 
-Guard hooks install directly, so the identity Guard reports matches Scan's
+Agent Guard hooks install directly, so the identity Guard reports matches Scan's
 — both use `docker-sbx:${SANDBOX_NAME}:${SANDBOX_ID}` — from the very first
 install.
 
@@ -134,10 +134,10 @@ pre-authenticate it. Never paste credentials into the agent conversation.
 
 ### Custom Snyk API base (`SNYK_API`)
 
-By default Scan and Guard talk to `https://api.snyk.io`. Set `SNYK_API` to
+By default Agent Scan and Agent Guard talk to `https://api.snyk.io`. Set `SNYK_API` to
 point them at a different Snyk API base instead — the kit passes it to
 `guard install` as `--url`, and to `scan` as `--analysis-url` with the same
-path AgentScan uses by default (only the host changes):
+path Agent Scan uses by default (only the host changes):
 
 ```bash
 sbx run docker.io/docker/sbx-kit-claude:2.1.267 \
@@ -208,7 +208,7 @@ The kit allows `**.snyk.io` (any host under `snyk.io`, any subdomain depth —
 covers `api.snyk.io`, `deeproxy.snyk.io`, `downloads.snyk.io`, and a custom
 `SNYK_API` host), plus `registry.npmjs.org`, `github.com`, and
 `release-assets.githubusercontent.com`. Snyk Code (SAST) needs access to
-`deeproxy.snyk.io`; AgentScan, Guard, and Studio binaries download from
+`deeproxy.snyk.io`; Agent Scan, Agent Guard, and Studio binaries download from
 `github.com`/`release-assets.githubusercontent.com`. Organization policy may
 require these domains to be allowed centrally. Kit changes apply when
 creating a sandbox; existing sandboxes need their network policy updated or
@@ -218,10 +218,10 @@ must be recreated.
 
 Inside the sandbox, ask the agent:
 
-> Run an AgentScan security review and summarize the findings for this sandbox.
+> Run an Agent Scan security review and summarize the findings for this sandbox.
 
 The kit's instructions explain authentication, binary discovery, and synchronous
-results via `--show-analysis-results`. AgentScan does not require `snyk auth`;
+results via `--show-analysis-results`. Agent Scan does not require `snyk auth`;
 Snyk CLI has separate authentication.
 
 Background results are logged rather than inserted into an existing conversation.
@@ -241,7 +241,7 @@ Replace `<sandbox-name>` with the name passed at creation.
 `resolve-components.sh` prints `scan=0|1 guard=0|1 studio=0|1
 auth_mode=enterprise|standalone|none` and fails only if `SNYK_COMPONENTS`
 itself is malformed (an unknown component, or a value that resolves to
-none). AgentScan and Guard always share
+none). Agent Scan and Agent Guard always share
 `~/.local/share/snyk-agent-scan/agent-scan`; Studio's binary is at
 `~/.local/share/snyk-studio/snyk-studio-installer`.
 
@@ -250,6 +250,6 @@ none). AgentScan and Guard always share
 | TLS download failure, curl 60/77 | Pass the corporate root PEM with `-e SNYK_CORP_CA_PEM="$(cat /path/to/ca.pem)"` and recreate the sandbox; see [corporate certificates](#staging-the-corporate-ca-certificate) |
 | Connection failure, curl 6/7 | DNS, proxy, and organization network policy |
 | Sandbox creation fails immediately with a `snyk-ads: ERROR` | `SNYK_COMPONENTS` itself — an unknown component name, or a value that resolves to none (see [Components](#components)) |
-| Binary installed but scan/guard hooks inactive | Missing credential for that component — install logs say so; set it and recreate the sandbox |
+| Binary installed but Agent scan/guard hooks inactive | Missing credential for that component — install logs say so; set it and recreate the sandbox |
 | No Scan binary | Whether `scan` was actually requested in `SNYK_COMPONENTS` |
 | No recurring output | Startup log and sbx version |
