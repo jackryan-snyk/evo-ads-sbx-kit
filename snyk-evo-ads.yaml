@@ -3,11 +3,12 @@
 schemaVersion: "3"
 kind: mixin
 displayName: Snyk Evo ADS
-description: "Installs Snyk AgentScan, Agent Guard, and/or Snyk Studio, selected via SNYK_COMPONENTS, directly from their public release channels"
+description: "Installs Snyk Agent Scan, Agent Guard, and/or Snyk Studio, selected via SNYK_COMPONENTS, directly from their public release channels"
 sourceUrl: https://github.com/docker/sbx-kits-contrib/tree/main/snyk-evo-ads
 licenses:
   - Apache-2.0
 version: "1.0.0"
+iconUrl: https://raw.githubusercontent.com/snyk/evo-ads-sbx-kit/main/icon.png
 
 # Agent-agnostic: there is no agent requirement. Guard installs hooks for
 # whichever of claude/cursor/codex is present and skips the rest.
