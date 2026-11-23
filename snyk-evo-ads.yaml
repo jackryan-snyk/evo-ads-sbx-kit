@@ -3,7 +3,7 @@
 schemaVersion: "3"
 kind: mixin
 displayName: Snyk Evo ADS
-description: "Installs Snyk Agent Scan, Agent Guard, and/or Snyk Studio, selected via SNYK_COMPONENTS, directly from their public release channels"
+description: "Installs Snyk Agent Scan, Agent Guard, and/or Snyk Studio, and optionally routes npm, pip and uv through Snyk Dependency Firewall, selected via SNYK_COMPONENTS"
 sourceUrl: https://github.com/docker/sbx-kits-contrib/tree/v3/snyk-evo-ads
 licenses:
   - Apache-2.0
@@ -50,6 +50,21 @@ capabilities:
             if ! grep -qxF 'unset NPM_CONFIG_PREFIX' /etc/sandbox-persistent.sh; then
               printf '\nunset NPM_CONFIG_PREFIX\n' >> /etc/sandbox-persistent.sh
             fi
+
+        - description: "Configure Snyk Dependency Firewall"
+          user: "0"
+          env: [SNYK_COMPONENTS, SNYK_TOKEN, SNYK_ADS_PUSH_KEY, SNYK_TENANT_ID, SNYK_API]
+          command: |
+            set -eu
+            # Root hook: HOME is not the agent's, so call the staged helpers by path.
+            KIT=/home/agent/.snyk-kit
+            COMPONENTS_OUTPUT="$(sh "$KIT/resolve-components.sh")" || exit 1
+            eval "$COMPONENTS_OUTPUT"
+            if [ "$firewall" != 1 ]; then
+              echo "snyk-df: firewall not requested; skipping."
+              exit 0
+            fi
+            sh "$KIT/configure-firewall.sh"
 
         - description: "Install corporate root CA certificate(s) into the system trust store"
           user: "0"
@@ -124,7 +139,7 @@ capabilities:
             set -eu
             COMPONENTS_OUTPUT="$(sh "$HOME/.snyk-kit/resolve-components.sh")" || exit 1
             eval "$COMPONENTS_OUTPUT"
-            echo "snyk-ads: components scan=$scan guard=$guard studio=$studio (auth_mode=$auth_mode)"
+            echo "snyk-ads: components scan=$scan guard=$guard studio=$studio firewall=$firewall (auth_mode=$auth_mode)"
             if [ "$auth_mode" = none ]; then
               echo "snyk-ads: no SNYK_TOKEN or SNYK_ADS_PUSH_KEY supplied; binaries install, but Agent Scan/Agent Guard hooks stay inactive until a credential is set and the sandbox is recreated."
             fi
