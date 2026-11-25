@@ -585,11 +585,12 @@ class ConfigureFirewallShTests(KitTestCase):
         index = f'https://snyk:placeholder-123@api.snyk.io/hidden/tenants/{self.TENANT}/registry/pypi/simple/'
         self.assertEqual(result.stdout, f'{index}|{index}')
 
-    def test_falls_back_to_snyk_token_when_no_custom_secret(self):
+    def test_does_not_fall_back_to_snyk_token(self):
         self.configure(SNYK_TENANT_ID=self.TENANT)
-        result = self.run_shell(f'. "{self.profile}"; printf "%s" "$SNYK_DF_TOKEN"',
+        result = self.run_shell(f'. "{self.profile}"; printf "%s" "$PIP_INDEX_URL"',
                                 SNYK_DF_TOKEN='', SNYK_TOKEN='tok')
-        self.assertEqual(result.stdout, 'tok')
+        self.assertNotIn('tok', result.stdout)
+        self.assertIn('https://snyk:@api.snyk.io/', result.stdout)
 
     def test_rerun_replaces_block_and_keeps_other_profile_lines(self):
         self.profile.write_text('unset NPM_CONFIG_PREFIX\n')
@@ -641,6 +642,15 @@ class ConfigureFirewallStepTests(KitTestCase):
     def test_malformed_components_abort(self):
         result = self.run_shell(self.script, SNYK_COMPONENTS='firewal')
         self.assertNotEqual(result.returncode, 0)
+
+    def test_runs_after_every_other_install_hook(self):
+        # Studio installs with npm. If ~/.npmrc pointed at the firewall first,
+        # that install would need SNYK_DF_TOKEN and could hit a cooldown.
+        text = (ROOT / 'snyk-evo-ads.yaml').read_text()
+        install = text[text.index('      install:\n'):text.index('      startup:\n')]
+        descriptions = [line.split('description: "', 1)[1].rstrip('"')
+                        for line in install.splitlines() if '- description: "' in line]
+        self.assertEqual(descriptions[-1], 'Configure Snyk Dependency Firewall')
 
 
 if __name__ == '__main__':

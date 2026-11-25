@@ -182,9 +182,11 @@ sbx run docker.io/sbx/claude:2.1.267 \
 The kit writes `~/.npmrc` (registry `.../registry/npm_portable/`) and
 exports `PIP_INDEX_URL`, `UV_INDEX_URL` and `UV_DEFAULT_INDEX` (index
 `.../registry/pypi/simple/`) in every agent shell. Neither file contains the
-token: both reference `SNYK_DF_TOKEN`, which falls back to `SNYK_TOKEN` when
-no custom secret is set. Passing `-e SNYK_TOKEN` instead of the custom secret
-works but places the real token in the sandbox. `SNYK_API` moves the
+token: both reference `SNYK_DF_TOKEN`. Without a custom secret, passing
+`-e SNYK_DF_TOKEN="$SNYK_TOKEN"` also works but places the real token in the
+sandbox. The firewall hook runs after the kit's own installs, so Agent Scan
+and Studio still install from their public sources during setup; the firewall
+governs every package the agent installs once the sandbox is running. `SNYK_API` moves the
 registry host for other regions, for example `https://api.eu.snyk.io`.
 
 The deny flags are per sandbox and can only narrow egress, so they are safe

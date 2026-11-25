@@ -3,7 +3,9 @@
 # Runs as root from the kit's install hook. Writes no credential: the npm
 # config references ${SNYK_DF_TOKEN} and the pip/uv index is built from it in
 # each new agent shell, so only the variable (ideally an sbx custom-secret
-# placeholder) ever reaches disk.
+# placeholder) ever reaches disk. SNYK_DF_TOKEN is the only name read: an sbx
+# custom secret sets it for every sandbox process, which a shell-profile
+# fallback could not.
 #
 # Inputs: SNYK_TENANT_ID (required), SNYK_API (optional, default
 # https://api.snyk.io). SNYK_DF_NPMRC and SNYK_DF_PROFILE override the target
@@ -54,8 +56,7 @@ sed '/^# snyk-df begin$/,/^# snyk-df end$/d' "$profile" > "$tmp"
 cat >> "$tmp" <<PROFILE
 # snyk-df begin
 export SNYK_DF_REGISTRY="$registry"
-export SNYK_DF_TOKEN="\${SNYK_DF_TOKEN:-\${SNYK_TOKEN:-}}"
-export PIP_INDEX_URL="https://snyk:\${SNYK_DF_TOKEN}@$host_path/pypi/simple/"
+export PIP_INDEX_URL="https://snyk:\${SNYK_DF_TOKEN:-}@$host_path/pypi/simple/"
 export UV_INDEX_URL="\$PIP_INDEX_URL"
 export UV_DEFAULT_INDEX="\$PIP_INDEX_URL"
 # snyk-df end
