@@ -41,7 +41,6 @@ mkdir -p "$(dirname "$npmrc")"
 cat > "$npmrc" <<NPMRC
 registry=$registry/npm_portable/
 //$host_path/npm_portable/:_authToken=\${SNYK_DF_TOKEN}
-always-auth=true
 NPMRC
 chmod 0600 "$npmrc"
 if [ "$(id -u)" = 0 ] && [ -z "${SNYK_DF_NPMRC:-}" ]; then

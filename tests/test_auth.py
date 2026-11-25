@@ -566,6 +566,7 @@ class ConfigureFirewallShTests(KitTestCase):
         self.assertIn(f'registry={registry}/npm_portable/\n', npmrc)
         self.assertIn(f'//{registry[8:]}/npm_portable/:_authToken=${{SNYK_DF_TOKEN}}\n', npmrc)
         self.assertEqual(self.npmrc.stat().st_mode & 0o777, 0o600)
+        self.assertNotIn('always-auth', npmrc)  # unknown to current npm; warns on every command
         profile = self.profile.read_text()
         self.assertIn(f'export SNYK_DF_REGISTRY="{registry}"', profile)
         self.assertIn(f'@{registry[8:]}/pypi/simple/"', profile)
